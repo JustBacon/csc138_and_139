@@ -4,18 +4,16 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
-
-// -n -I cant work together
 public class MyXargs{
-    private static int num = -1;
     private static List<String> commandArgs = new ArrayList<>();
-    private static String replaceIcommand = null;
+    private static int num = -1; // used for -n # command
+    private static String replaceIcommand = null; // -I {} command
     private static boolean rCommand = false; // -r command
     private static boolean tCommand = false; // -t command
     public static void main(String[] args){
         // check the number of arguments used and how to use MyXargs
         if(args.length < 1){
-            System.out.println("Usage: MyXargs [-n num] [-I replace] [-t] [-r] command");
+            errorUsage();
             return;
         }
 
@@ -26,7 +24,7 @@ public class MyXargs{
                         try {
                             num = Integer.parseInt(args[++i]);
                         } catch (NumberFormatException e) {
-                            System.out.println("Error Usage");
+                            errorUsage();
                             return;
                         }
                     }
@@ -43,7 +41,7 @@ public class MyXargs{
                     break;
                 default:
                     if(args[i].startsWith("-")){
-                        System.out.println("Error usage");
+                        errorUsage();
                         return;
                     }else{
                         commandArgs.add(args[i]);
@@ -53,20 +51,24 @@ public class MyXargs{
         }
 
         List<String> inputs = readInput();
-
         if(inputs.isEmpty() && rCommand) return;
-        
+        // user tried to use -n and -I together
+        if(num != -1 && replaceIcommand != null){
+            System.out.println("-n and -I are mutually exclusive");
+            return;
+        }
+
         if(replaceIcommand != null){
             withICommand(inputs);
         }else{
             withoutICommand(inputs);
         }
-
-        // System.out.println(inputs);
-        // runCommand(inputs);
     
     }
 
+    private static void errorUsage(){
+        System.out.println("Usage: MyXargs [-n num] [-I replace] [-t] [-r] command");
+    }
     // grab the output from the left side
     private static List<String> readInput(){
         List<String> inputs = new ArrayList<>();
