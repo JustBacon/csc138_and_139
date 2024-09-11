@@ -17,6 +17,7 @@ public class MyXargs{
             return;
         }
 
+        // go through args list to see which commands are used
         for(int i = 0; i < args.length; i++){
             switch (args[i]) {
                 case "-n":
@@ -58,6 +59,7 @@ public class MyXargs{
             return;
         }
 
+        // check if user used the -I command
         if(replaceIcommand != null){
             withICommand(inputs);
         }else{
@@ -69,6 +71,7 @@ public class MyXargs{
     private static void errorUsage(){
         System.out.println("Usage: MyXargs [-n num] [-I replace] [-t] [-r] command");
     }
+
     // grab the output from the left side
     private static List<String> readInput(){
         List<String> inputs = new ArrayList<>();
@@ -85,10 +88,12 @@ public class MyXargs{
         return inputs;
     }
 
+    // remove this characters from the input ;&|><*?()$
     private static String sanitizeInput(String input){
         return input.replaceAll("[;&|><*?()$]", "");
     }
 
+    // this method will run if -I {} is provided
     private static void withICommand(List<String> inputs) {
     	for(List<String> batch : getBatches(inputs, num)) {
     		List<String> finalCommand = replacePlaceholders(commandArgs, batch);
@@ -99,6 +104,7 @@ public class MyXargs{
     	}
     }
 
+    // this method will run if there is no -I {}
     private static void withoutICommand(List<String> inputs){
         for(List<String> batch : getBatches(inputs, num)){
             List<String> finalCommand = new ArrayList<>(commandArgs);
@@ -110,6 +116,8 @@ public class MyXargs{
         }
     }
 
+    // For -I {} command
+    // replace {} with the string
     private static List<String> replacePlaceholders(List<String> commandArguments, List<String> replacements) {
     	List<String> replacedCommand = new ArrayList<>();
     	for(String part : commandArguments) {
@@ -125,6 +133,7 @@ public class MyXargs{
     	return replacedCommand;
     }
 
+
     private static List<List<String>> getBatches(List<String> inputs, int num) {
     	List<List<String>> batches = new ArrayList<>();
     	if(num > 0) {
@@ -138,6 +147,7 @@ public class MyXargs{
     	return batches;
     }
 
+    // run processBuilder to run all the command with arguments
     private static void runCommand(List<String> commandArgs){
         ProcessBuilder pb = new ProcessBuilder(commandArgs);
         pb.inheritIO();
