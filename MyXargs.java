@@ -133,7 +133,7 @@ public class MyXargs{
     	return replacedCommand;
     }
 
-
+    // combinne the inputs
     private static List<List<String>> getBatches(List<String> inputs, int num) {
     	List<List<String>> batches = new ArrayList<>();
     	if(num > 0) {
