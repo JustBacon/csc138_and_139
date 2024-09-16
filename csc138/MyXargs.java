@@ -69,7 +69,7 @@ public class MyXargs{
     }
 
     private static void errorUsage(){
-        System.out.println("Usage: MyXargs [-n num] [-I replace] [-t] [-r] command");
+        System.out.println("Usage: java MyXargs.java [-n num] [-I replace] [-t] [-r] command");
     }
 
     // grab the output from the left side
