@@ -1,0 +1,55 @@
+Using CrystalDiskMark (Windows) or AmorphousDiskMark (Mac), measure the performance of your system's main drive.
+
+After completing the test, answer the following questions in the Lab Submission Quiz:
+
+Sequential vs. Random Performance: Compare the sequential read/write speeds to the 4K random read/write speeds. Why is there a significant difference between the two, and how does this difference relate to whether you are using an HDD or SSD?
+
+Queue Depth Impact: How do the 4K random read/write speeds change between single queue (Q1T1) and multi-queue (e.g., Q32T1) tests? What does this indicate about how well your drive handles multiple tasks or processes at the same time? How might this be different if you are using an HDD vs. an SSD?
+
+Caching Influence: Based on your results, does your drive seem to benefit from any form of caching? If you have an SSD, do you think it has a DRAM cache or relies on an SLC cache? If you have an HDD, how might the cache on your drive have affected performance?
+
+Use Case Suitability: Given the performance characteristics of your drive, what types of tasks (e.g., file transfers, gaming, media storage) would it be best suited for, and why? If you have an HDD, would it be better suited for different tasks than an SSD, and how does your drive’s performance align with those tasks?
+
+
+30 per sector
+
+Request Timing:
+Run the following requests: -a 0, -a 6, -a 30, -a 7,30,8, and -a 10,11,12,13. Compute the seek, rotation, and transfer times for each set. How do these times change when you modify the seek rate (e.g., -S 2, -S 10, -S 40)?
+
+-a 0: 165 rotate, 30 transfer = 195
+-a 6: 345 rotate, 30 transfer = 375
+-a 30: 80 seek, 265 rotate, 30 transfer = 375
+-a 7,30,8:
+(7) 15 rotate, 30 transfer
+(30) 80 seek, 220 rotate, 30 transfer
+(8) 80 seek, 310 rotate, 30 transfer
+= 795
+XXX(8) 80 seek, -50 rotate, 30 transfer
+-a 10,11,12,13:
+(10,11) 105 rotate, 60 transfer
+(12,13) 40 seek, 320 rotate, 60 transfer
+= 585
+
+The time does not change.
+
+Scheduling Policies (SSTF vs. SATF):
+Compare the Shortest Seek-Time First (SSTF) scheduler (-p SSTF) to the Shortest Access-Time First (SATF) scheduler (-p SATF) using the request stream -a 7,30,8. Does one perform better? Identify a scenario where SATF outperforms SSTF.
+
+(-a 7,30,8)
+SSTF:
+(7) 15 rotate, 30 transfer
+(8) 30 transfer
+(30) 80 seek, 190 rotate, 30 transfer
+= 375
+
+Track Skew:
+Use the request stream -a 10,11,12,13. Run the simulation and observe any inefficiencies. Then, apply track skew (-o skew) to improve performance. How does changing the skew affect the result?
+
+Default 0: 585 time
+skew 1: 615
+skew 2: 285
+skew 3: 315
+
+
+Request Windowing:
+Generate a random workload (-A 1000,-1,0) and measure how the scheduling window (e.g., -w 1 to -w 10) affects the performance of the SATF scheduler. How large must the window be to maximize performance?
