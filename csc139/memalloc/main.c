@@ -3,7 +3,14 @@
 
 int main() {
     if (umeminit(1024 * 1024, BEST_FIT) == 0) {
-        printf("Success!");
+        printf("Success!\n");
+    } else {
+        fprintf(stderr, "Error: Failed to initialize memory allocator\n");
+        return 1;
+    }
+
+    if (umeminit(1024 * 1024, BEST_FIT) == 0) {
+        printf("Success!\n");
     } else {
         fprintf(stderr, "Error: Failed to initialize memory allocator\n");
         return 1;

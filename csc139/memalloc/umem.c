@@ -13,19 +13,19 @@ static int total_deallocations = 0;
 
 int umeminit(size_t sizeOfRegion, int allocationAlgo) {
     if (sizeOfRegion <= 0) {
-        fprintf(stderr, "Error: Invalid memory size");
+        fprintf(stderr, "Error: Invalid memory size\n");
         return -1;
     }
 
     if (free_list != NULL) {
-        fprintf(stderr, "Error: Memory Allocater already exist");
+        fprintf(stderr, "Error: Memory Allocater already exist\n");
         return -1;
     }
 
     int pageSize = getpagesize();
     sizeOfRegion = (sizeOfRegion + pageSize - 1) & ~(pageSize - 1);
 
-    void *region = mmap(NULL, sizeOfRegion, PROT_READ | PROT_WRITE, MAP_PRIVATE, -1, 0);
+    void *region = mmap(NULL, sizeOfRegion, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if (region == MAP_FAILED) {
         fprintf(stderr, "Error: mmap failed");
