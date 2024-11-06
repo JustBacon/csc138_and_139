@@ -153,23 +153,47 @@ void *umalloc(size_t size) {
     return (void *)((char *)header + sizeof(header_t));
 }
 
-// int ufree(void *ptr) {
-//     if (!ptr) return 0;
+int ufree(void *ptr) {
+    if (!ptr) return 0;
 
-//     header_t *block = (header_t*)((char*)ptr - sizeof(header_t));
-//     if (block->magic != MAGIC) {
-//         fprintf(stderr, "Error: Memory corruption detected at block %p\n", ptr);
-//         exit(1);
-//     }
+    header_t *header = (header_t*)((char*)ptr - sizeof(header_t));
+    if (header->magic != MAGIC) {
+        fprintf(stderr, "Error: Memory corruption detected at block %p\n", ptr);
+        exit(1);
+    }
 
-//     node_t *free_block = (node_t*)block;
-//     free_block->size = block->size;
-//     free_block->next = free_list;
-//     free_list = free_block;
+    node_t *curr = free_list;
+    while (curr != NULL) {
+        if ((void *)curr == (void *)header) {
+            fprintf(stderr, "Error: Double free detected at block %p\n", ptr);
+            exit(1);
+        }
+        curr = curr->next;
+    }
 
-//     total_deallocations++;
-//     return 0;
-// }
+    node_t *new_free = (node_t *)header;
+    new_free->size = header->size;
+    new_free->next = free_list;
+    free_list = new_free;
+
+    node_t *prev = NULL;
+    curr = free_list;
+    while (curr != NULL && curr->next != NULL) {
+        node_t *next = curr->next;
+        if((char *)curr + curr->size + sizeof(header_t) == (char *)next) {
+            curr->size += next->size + sizeof(header_t);
+            curr->next = next->next;
+        } else {
+            prev = curr;
+            curr = curr->next;
+        }
+    }
+
+    total_deallocations++;
+    printf("%li\n", header->size);
+    total_allocated -= header->size;
+    return 0;
+}
 
 // void *urealloc(void *ptr, size_t size) {
 //     if (!ptr) return umalloc(size);
