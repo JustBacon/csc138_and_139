@@ -10,6 +10,7 @@ static int allocation_algorithm;
 static size_t total_allocated = 0;
 static int total_allocations = 0;
 static int total_deallocations = 0;
+static node_t *next_fit_pointer = NULL;
 
 int umeminit(size_t sizeOfRegion, int allocationAlgo) {
     if (sizeOfRegion <= 0) {
@@ -23,6 +24,7 @@ int umeminit(size_t sizeOfRegion, int allocationAlgo) {
     }
 
     int pageSize = getpagesize();
+    printf("%i\n", pageSize);
     sizeOfRegion = (sizeOfRegion + pageSize - 1) & ~(pageSize - 1);
 
     void *region = mmap(NULL, sizeOfRegion, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -31,63 +33,125 @@ int umeminit(size_t sizeOfRegion, int allocationAlgo) {
         fprintf(stderr, "Error: mmap failed");
         return -1;
     }
-    
-    free_list = (node_t*)region;
-    free_list->size = sizeOfRegion - sizeof(header_t);
-    free_list->next = NULL;
 
     allocation_algorithm = allocationAlgo;
+    
+    free_list = region;
+    free_list->size = sizeOfRegion - sizeof(header_t);
+    free_list->next = NULL;
 
     return 0;
 }
 
-// void *umalloc(size_t size) {
-//     if (!allocated_region) return NULL;
+void *umalloc(size_t size) {
+    if (!free_list) return NULL;
 
-//     size = ALIGN(size);
-//     node_t *prev = NULL, *curr = free_list, *best = NULL, *best_prev = NULL;
+    size = (size + (8 - 1)) & ~(8 - 1);
+    size_t totalSize = size + sizeof(header_t);
 
-//     while (curr != NULL) {
-//         if (curr->size >= size) {
-//             if (allocation_algorithm == FIRST_FIT) {
-//                 best = curr;
-//                 break;
-//             }
-//             if (allocation_algorithm == BEST_FIT && (!best || curr->size < best->size)) {
-//                 best = curr;
-//                 best_prev = prev;
-//             }
-//             if (allocation_algorithm == WORST_FIT && (!best || curr->size > best->size)) {
-//                 best = curr;
-//                 best_prev = prev;
-//             }
-//         }
-//         prev = curr;
-//         curr = curr->next;
-//     }
+    node_t *prev = NULL;
+    node_t *best = NULL;
+    node_t *best_prev = NULL;
+    node_t *curr = free_list;
 
-//     if (!best) return NULL;
+    switch (allocation_algorithm) {
+        case BEST_FIT:
+            while (curr) {
+                if (curr->size >= size && (!best || curr->size < best->size)) {
+                    best = curr;
+                    best_prev = prev;
+                }
+                prev = curr;
+                curr = curr->next;
+            }
+            break;
+        
+        case WORST_FIT:
+            while (curr) {
+                if (curr->size >= size && (!best || curr->size > best->size)) {
+                    best = curr;
+                    best_prev = prev;
+                }
+                prev = curr;
+                curr = curr->next;
+            }
+            break;
 
-//     header_t *allocated = (header_t*)((char*)best + sizeof(node_t));
-//     allocated->size = size;
-//     allocated->magic = MAGIC;
+        case FIRST_FIT:
+            while (curr) {
+                if (curr->size >= totalSize) {
+                    best = curr;
+                    best_prev = prev;
+                }
+                prev = curr;
+                curr = curr->next;
+            }
+            break;
+        
+        case NEXT_FIT:
+            if(next_fit_pointer == NULL) {
+                next_fit_pointer = free_list;
+            }
+            curr = next_fit_pointer;
+            while (curr) {
+                if (curr->size >= totalSize) {
+                    best = curr;
+                    best_prev = prev;
+                    next_fit_pointer = curr->next;
+                    break;
+                }
+                prev = curr;
+                curr = curr->next;
+            }
+            if (!best) {
+                curr = free_list;
+                prev = NULL;
+                while (curr != next_fit_pointer) {
+                    if (curr->size >= totalSize) {
+                        best = curr;
+                        best_prev = prev;
+                        next_fit_pointer = curr->next;
+                        break;
+                    }
+                    prev = curr;
+                    curr = curr->next;
+                }
+            }
+            break;
+    }
 
-//     if (best->size > size + sizeof(header_t)) {
-//         node_t *new_free = (node_t*)((char*)allocated + size + sizeof(header_t));
-//         new_free->size = best->size - size - sizeof(header_t);
-//         new_free->next = best->next;
+    if (!best) {
+        return NULL;
+    }
 
-//         if (best_prev) best_prev->next = new_free;
-//         else free_list = new_free;
-//     } else {
-//         if (best_prev) best_prev->next = best->next;
-//         else free_list = best->next;
-//     }
+    // Splitting block
+    if (best->size >= totalSize + sizeof(node_t)) {
+        node_t *new_free = (node_t *)((char *)best + totalSize);
+        new_free->size = best->size - totalSize;
+        new_free->next = best->next;
 
-//     total_allocated += size;
-//     total_allocations++;
-//     return (void*)((char*)allocated + sizeof(header_t));
-// }
+        if (best_prev) {
+            best_prev->next = new_free;
+        } else {
+            free_list = new_free;
+        }
+    } else {
+        if (best_prev) {
+            best_prev->next = best->next;
+        } else {
+            free_list = best->next;
+        }
+    }
+
+    header_t *header = (header_t *)best;
+    header->size = size;
+    header->magic = MAGIC;
+
+    total_allocations++;
+    total_allocated += size;
+
+    return (void *)((char *)header + sizeof(header_t));
+}
 
 // int ufree(void *ptr) {
 //     if (!ptr) return 0;
@@ -130,14 +194,39 @@ int umeminit(size_t sizeOfRegion, int allocationAlgo) {
 //     return new_ptr;
 // }
 
-// void umemstats(void) {
-//     size_t free_memory = 0;
-//     node_t *current = free_list;
-//     while (current) {
-//         free_memory += current->size;
-//         current = current->next;
-//     }
+void umemstats(void) {
+    size_t free_memory = 0;
+    size_t largest_free_block = 0;
+    size_t small_free_memory = 0;
 
-//     double fragmentation = 0.0;
-//     printumemstats(total_allocations, total_deallocations, total_allocated, free_memory, fragmentation);
-// }
+    node_t *current = free_list;
+    while (current != NULL) {
+        free_memory += current->size;
+
+        if (current->size > largest_free_block) {
+            largest_free_block = current->size;
+        }
+
+        current = current->next;
+    }
+
+    if (largest_free_block > 0) {
+        size_t fragmentation_threshold = largest_free_block / 2;
+    
+        current = free_list;
+        while (current != NULL) {
+            if (current->size < fragmentation_threshold) {
+                small_free_memory += current->size;
+            }
+            current = current->next;
+        }
+
+    }
+
+    double fragmentation = 0.0;
+    if (free_memory > 0) {
+        fragmentation = ((double)small_free_memory / (double)free_memory) * 100.0;
+    }
+
+    printumemstats(total_allocations, total_deallocations, total_allocated, free_memory, fragmentation);
+}
