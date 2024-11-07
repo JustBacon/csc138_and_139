@@ -24,8 +24,8 @@ int umeminit(size_t sizeOfRegion, int allocationAlgo) {
     }
 
     int pageSize = getpagesize();
-    printf("%i\n", pageSize);
     sizeOfRegion = (sizeOfRegion + pageSize - 1) & ~(pageSize - 1);
+    printf("%li\n", sizeOfRegion);
 
     void *region = mmap(NULL, sizeOfRegion, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
@@ -161,7 +161,7 @@ int ufree(void *ptr) {
         fprintf(stderr, "Error: Memory corruption detected at block %p\n", ptr);
         exit(1);
     }
-
+    
     node_t *curr = free_list;
     while (curr != NULL) {
         if ((void *)curr == (void *)header) {
@@ -171,52 +171,65 @@ int ufree(void *ptr) {
         curr = curr->next;
     }
 
+    printf("%li\n", header->size);
+    total_deallocations++;
+    total_allocated -= header->size;
+
     node_t *new_free = (node_t *)header;
     new_free->size = header->size;
     new_free->next = free_list;
     free_list = new_free;
 
-    node_t *prev = NULL;
     curr = free_list;
     while (curr != NULL && curr->next != NULL) {
         node_t *next = curr->next;
         if((char *)curr + curr->size + sizeof(header_t) == (char *)next) {
             curr->size += next->size + sizeof(header_t);
             curr->next = next->next;
+        } else if ((char *)curr - next->size - sizeof(header_t) == (char *)next) {
+            next->size += curr->size + sizeof(header_t);
+            free_list = next;
+            curr = next;
         } else {
-            prev = curr;
             curr = curr->next;
         }
     }
 
-    total_deallocations++;
-    printf("%li\n", header->size);
-    total_allocated -= header->size;
     return 0;
 }
 
-// void *urealloc(void *ptr, size_t size) {
-//     if (!ptr) return umalloc(size);
-//     if (size == 0) {
-//         ufree(ptr);
-//         return NULL;
-//     }
+void *urealloc(void *ptr, size_t size) {
+    // if pointer is null use umalloc()
+    if (ptr == NULL){
+        return umalloc(size);
+    } 
+    // if size is 0 use ufree()
+    if (size == 0) {
+        ufree(ptr);
+        return NULL;
+    }
 
-//     header_t *block = (header_t*)((char*)ptr - sizeof(header_t));
-//     if (block->magic != MAGIC) {
-//         fprintf(stderr, "Error: Memory corruption detected at block %p\n", ptr);
-//         exit(1);
-//     }
+    // 8-byte aligned pointers
+    size = (size + (8 - 1)) & ~(8 - 1);
+    size_t totalSize = size + sizeof(header_t);
 
-//     if (block->size >= size) return ptr;
+    header_t *header = (header_t*)((char*)ptr - sizeof(header_t));
 
-//     void *new_ptr = umalloc(size);
-//     if (!new_ptr) return NULL;
+    // check memory corruption using MAGIC number
+    if (header->magic != MAGIC) {
+        fprintf(stderr, "Error: Memory corruption detected at block %p\n", ptr);
+        exit(1);
+    }
 
-//     memcpy(new_ptr, ptr, block->size);
-//     ufree(ptr);
-//     return new_ptr;
-// }
+    // if the block size is sufficient, return the same pointer
+    if (header->size >= size) return ptr;
+
+    void *new_ptr = umalloc(size);
+    if (!new_ptr) return NULL;
+
+    ufree(ptr);
+    return new_ptr;
+}
 
 void umemstats(void) {
     size_t free_memory = 0;
